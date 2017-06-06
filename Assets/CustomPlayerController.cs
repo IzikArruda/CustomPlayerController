@@ -16,12 +16,15 @@ public class CustomPlayerController : MonoBehaviour {
     public float runSpeedMultiplier;
     public float gravity;
     public float bodyHeight;
-    public float feetHeight;
-    //How a high a step can be before the player will not lock onto the floor bellow
-    public float maxStepHeight;
+    public float legHeight;
 
-    /* The position of the player's feet */
+    /* How a high a step can be before the player will not lock onto the floor bellow */
+    public float maxStepHeight;
+    
+    /* The position of the player's feet and their leg lenths */
     public Vector3 feetPosition;
+    public float previousLegLength;
+    public float currentLegLength;
 
     public bool falling = false;
 
@@ -38,7 +41,10 @@ public class CustomPlayerController : MonoBehaviour {
 
         //Move the player's position so the space between the base of the player's body and their feet is feetHeight
         transform.position = feetPosition;
-        transform.localPosition += new Vector3(0, bodyHeight/2f + feetHeight, 0);
+        transform.localPosition += new Vector3(0, bodyHeight/2f + legHeight, 0);
+
+        //Set the current leg length value 
+        currentLegLength = legHeight;
     }
 
     void Update() {
@@ -79,26 +85,10 @@ public class CustomPlayerController : MonoBehaviour {
         
 
         /* Apply all the movements that the player will undergo */
-        //inputVector = new Vector3(0.03f, 0, 0);
+        //inputVector = new Vector3(0.03f, 0, 0); AUTO MOVE THE PLAYER
 
         /* Apply the movement to the player */
         MovePlayer(inputVector, upVector);
-
-
-        /* Push the player down if a raycast from their center doesnt hit the floor */
-        /*float playerHeight = 2;
-        bool isGrounded;
-        float snapDistance = 1f;
-        RaycastHit hitInfo = new RaycastHit();
-        if(Physics.Raycast(new Ray(transform.position, Vector3.down), out hitInfo, snapDistance)) {
-            Debug.Log("HIT THE THING");
-            isGrounded = true;
-            transform.position = hitInfo.point;
-            transform.position = new Vector3(hitInfo.point.x, hitInfo.point.y + playerHeight / 2, hitInfo.point.z);
-        }
-        else {
-            isGrounded = false;
-        }*/
     }
 
     public void MovePlayer(Vector3 inputVector, Vector3 upDirection) {
@@ -106,67 +96,44 @@ public class CustomPlayerController : MonoBehaviour {
          * Use the given inputVector to move the player in the proper direction and use the given
          * upDirection to determine if the player will need to stick to the floor or start falling.
          * 
-         * To determine if the player has taken a step down/up, rayTrace from the base of the player's body
-         * down to their feet. No collision means the player is currently falling, but doesnt mean we apply gravity yet.
+         * To determine if the player has taken a step down or up, compare a rayTrace taken before this frame and 
+         * a rayTrace taken at this frame. If their legLenths are different, then a step will be taken.
          * 
-         * After moving the player using the given inputVector, recalculate their footing position. If there is no
-         * collision, then the player is currently falling. Here are the other outcomes:
-         * footing is equal before and after moving: The player has remained on flat ground.
-         * footing is more after moving: The player walked down something, snap the footing and move their body down.
-         * footing is less after moving: The player walked up something, snap the footing and move their body up.
+         * If the currentLegLength rayTrace does not connect to the floor, the player will undergo the effects
+         * of gravity instead of taking a step. When under the effects of graivty, the previous step is ignored.
          */
         RaycastHit hitInfo = new RaycastHit();
-        Ray bodyToFeet;
-        float currentFeetLength = feetHeight;
-        float nextFeetLength = feetHeight + maxStepHeight;
-        bool applyGravity = true;
 
-        /* Get the current state of the player's footing */
-        //note: the initial footing check should not exceed feetHeight, because we do not want the 
-        //player to be walking around with legs larger than feetHeight. This does not seem like a  proper fix however
-        bodyToFeet = new Ray(transform.position - upDirection*bodyHeight/2f, -upDirection);
-        if(Physics.Raycast(bodyToFeet, out hitInfo, currentFeetLength)) {
-            currentFeetLength = hitInfo.distance;
-        }
-
-        /* Apply the input movement to the player */
-        transform.GetComponent<Rigidbody>().velocity = Vector3.zero;
-        //transform.position += (inputVector)*Time.deltaTime*60;
-        GetComponent<Rigidbody>().MovePosition(transform.position + (inputVector)*Time.deltaTime*60);
-
-
-        /* Recalculate the footing of the player on the next step with a higher feetLength to catch walking down stairs */
-        bodyToFeet = new Ray(transform.position - upDirection*bodyHeight/2f, -upDirection);
-        if(Physics.Raycast(bodyToFeet, out hitInfo, nextFeetLength)) {
-            nextFeetLength = hitInfo.distance;
-            applyGravity = false;
-        }
-
-        /* Determine what happened on this frame to the player */
-        if(nextFeetLength < currentFeetLength) {
-            Debug.Log("player stepped up");
-        }
-        else if(nextFeetLength > currentFeetLength) {
-            Debug.Log("player stepped down");
-        }
-
+        /* Update the legLength values for this frame */
+        previousLegLength = currentLegLength;
+        hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
+        currentLegLength = hitInfo.distance;
         
-        /* Make the player fall if gravity comes into play */
-        if(applyGravity == true) {
-            falling = true;
-        }
-        if(falling == true) {
-            Debug.Log("FALLING");
+        /* If a step will be taken, re-calculate the currentLegLength of the new position */
+        Vector3 stepVector = upDirection*(previousLegLength - currentLegLength);
+        if(stepVector.magnitude != 0) {
+            transform.position += stepVector;
+            Debug.Log(currentLegLength + "  -  " + previousLegLength);
+            hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
+            currentLegLength = hitInfo.distance;
         }
 
-
-
-        /* If there is a discrepincy in the footing and the player is not falling, make them step */
-        float steppingDifference = currentFeetLength - nextFeetLength;
-        if(steppingDifference != 0 && applyGravity == false) {
-            Debug.Log(steppingDifference);
-            transform.localPosition += new Vector3(0, steppingDifference, 0);
-        }
+        /* Apply the movement of the players input */
+        GetComponent<Rigidbody>().velocity = Vector3.zero;
+        GetComponent<Rigidbody>().MovePosition(transform.position + (inputVector)*Time.deltaTime*60);
     }
 
+
+    public RaycastHit RayTrace(Vector3 position, Vector3 direction, float distance) {
+        /*
+         * Send a rayTrace from the given point in the given direction for the given distance. 
+         * Return the rayCastHit info.
+         */
+        RaycastHit hitInfo = new RaycastHit();
+        Ray bodyToFeet = new Ray(position, direction);
+
+        if(Physics.Raycast(bodyToFeet, out hitInfo, distance)) {}
+
+        return hitInfo;
+    }
 }
