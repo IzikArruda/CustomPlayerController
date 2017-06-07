@@ -3,8 +3,13 @@ using System.Collections;
 
 public class CustomPlayerController : MonoBehaviour {
     
-    /* The position of the camera used for the player view */
+    /* The expected position of the camera */
     public Transform restingCameraTransform;
+    /* The current position of the camera */
+    public Transform currentCameraTransform;
+
+    /* The camera used for the player's view */
+    public Camera playerCamera;
 
     /* The direction of player input */
     private Vector3 inputVector = Vector3.zero;
@@ -26,7 +31,7 @@ public class CustomPlayerController : MonoBehaviour {
     public float previousLegLength;
     public float currentLegLength;
 
-    public bool falling = false;
+    public bool falling = true;
 
     void Start() {
         /*
@@ -103,25 +108,101 @@ public class CustomPlayerController : MonoBehaviour {
          * of gravity instead of taking a step. When under the effects of graivty, the previous step is ignored.
          */
         RaycastHit hitInfo = new RaycastHit();
+        Vector3 gravityVector = Vector3.zero;
+        Vector3 stepVector = Vector3.zero;
 
         /* Update the legLength values for this frame */
         previousLegLength = currentLegLength;
         hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
         currentLegLength = hitInfo.distance;
+
+
+        /* Check if the player is falling/feet do not touch an object */
+        if(hitInfo.collider == null) { falling = true; }
         
-        /* If a step will be taken, re-calculate the currentLegLength of the new position */
-        Vector3 stepVector = upDirection*(previousLegLength - currentLegLength);
-        if(stepVector.magnitude != 0) {
-            transform.position += stepVector;
-            Debug.Log(currentLegLength + "  -  " + previousLegLength);
-            hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
-            currentLegLength = hitInfo.distance;
+
+        /* If the player was falling but now have their feet on the ground, put them into the proper standing position */
+        if(hitInfo.collider != null && falling == true) {
+            falling = false;
+
+            /* Put the player's body a legHeight amount above the place where they landed */
+            stepVector = transform.position - (hitInfo.point + upDirection*(bodyHeight/2f + legHeight));
+            transform.position -= stepVector;
+
+            currentLegLength = legHeight;
         }
+
+        /* If the player is falling, apply a gravity vector */
+        else if(falling == true) {
+            gravityVector = -0.1f*upDirection;
+        }
+
+        /* If the player is on their feet, check if they have taken a step */
+        else if(falling == false) {
+
+            /* If a step will be taken, re-calculate the currentLegLength of the new position */
+            stepVector = upDirection*(previousLegLength - currentLegLength);
+            if(stepVector.magnitude != 0) {
+                transform.position += stepVector;
+                hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
+                currentLegLength = hitInfo.distance;
+            }
+        }
+
 
         /* Apply the movement of the players input */
         GetComponent<Rigidbody>().velocity = Vector3.zero;
-        GetComponent<Rigidbody>().MovePosition(transform.position + (inputVector)*Time.deltaTime*60);
+        GetComponent<Rigidbody>().MovePosition(transform.position + (gravityVector + inputVector)*Time.deltaTime*60);
+
+        /* Move the player camera if a step was taken */
+        currentCameraTransform.transform.position -= stepVector;
+        
+
+        //The player camera must always be where the currentCameraTransform is
+        playerCamera.transform.position = currentCameraTransform.position;
+        playerCamera.transform.rotation = currentCameraTransform.rotation;
+
+        
+        /* Adjust the camera's position now that the player has moved */
+        AdjustCamera();
+        
+        //WHAT NEEDS TO HAPPEN NEXDT:
+        //A FUNCTION THAT SLIDES THE CURRENTCAMTRANS TOWARDS THE RESTYINGCAMTRANS.
+        //THIS FUNCTION ALSO NEEDS TO MAKE SURE THE CURRENTCAMTRANS DOES NOT GO TOO FAR PAST RESTCAMTRANS
     }
+
+    void AdjustCamera() {
+        /*
+         * Move the currentCameraTransform towards restingCameraTransform.
+         */
+        Vector3 positionDifference;
+        float minimumPositionDifference = 0.01f;
+        float maximumPositionDifference = bodyHeight/3f;
+        float recoveryPercentage = 0.15f;
+
+        /* Get the difference in positions of the cameraTransforms */
+        positionDifference = restingCameraTransform.position - currentCameraTransform.position;
+
+
+        /* If the difference in their position is small enough, snap the currentTransform to the restingTransform */
+        if(positionDifference.magnitude < minimumPositionDifference) {
+            currentCameraTransform.position = restingCameraTransform.position;
+        }
+
+        /* If the difference in their position is too large, clamp the currentTransform */
+        else if(positionDifference.magnitude > maximumPositionDifference) {
+            currentCameraTransform.position = restingCameraTransform.position - positionDifference.normalized*maximumPositionDifference;
+            Debug.Log("THING");
+        }
+
+        /* Smoothly translate the currentTransform to restingTransform using a "recoveryPercentage" */
+        else {
+            currentCameraTransform.position += positionDifference*recoveryPercentage;
+        }
+    }
+
+
+
 
 
     public RaycastHit RayTrace(Vector3 position, Vector3 direction, float distance) {
