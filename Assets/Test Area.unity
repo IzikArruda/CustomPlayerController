@@ -1434,12 +1434,13 @@ MonoBehaviour:
   movementSpeed: 0.03
   runSpeedMultiplier: 1.5
   gravity: 1
-  bodyHeight: 1.5
-  legHeight: 0.5
+  playerBodyLength: 1.5
+  playerLegLength: 0.5
   maxStepHeight: 0.5
-  feetPosition: {x: 0, y: 0, z: 0}
-  previousLegLength: 0
-  currentLegLength: 0
+  extraFeet: 7
+  currentFootPosition: {x: 0, y: 0, z: 0}
+  previousFootPosition: {x: 0, y: 0, z: 0}
+  currentLegLength: []
   falling: 0
 --- !u!23 &1438194342
 MeshRenderer:

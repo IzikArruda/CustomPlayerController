@@ -20,16 +20,21 @@ public class CustomPlayerController : MonoBehaviour {
     public float movementSpeed;
     public float runSpeedMultiplier;
     public float gravity;
-    public float bodyHeight;
-    public float legHeight;
+    public float playerBodyLength;
+    public float playerLegLength;
 
     /* How a high a step can be before the player will not lock onto the floor bellow */
     public float maxStepHeight;
-    
-    /* The position of the player's feet and their leg lenths */
-    public Vector3 feetPosition;
-    public float previousLegLength;
-    public float currentLegLength;
+
+
+
+    /* How many extra feet are used when handling ground checks */
+    public int extraFeet;
+    /* The position of the player's foot and their leg lenths */
+    public Vector3 currentFootPosition;
+    public Vector3 previousFootPosition;
+    public float[] currentLegLength;
+
 
     public bool falling = true;
 
@@ -38,18 +43,18 @@ public class CustomPlayerController : MonoBehaviour {
          * Set the values of the player model to be equal to the values set in the script
          */
 
-        //Start by setting the player feet to vector3.zero
-        feetPosition = Vector3.zero;
+        /* Initilize the leg lengths */
+        currentLegLength = new float[extraFeet + 1];
 
-        //Adjust the player's body height to the given value
-        GetComponent<CapsuleCollider>().height = bodyHeight;
+        /* Put the starting foot position at the base of the player model */
+        currentFootPosition = transform.TransformPoint(new Vector3(0, -GetComponent<CapsuleCollider>().height/2, 0));
 
-        //Move the player's position so the space between the base of the player's body and their feet is feetHeight
-        transform.position = feetPosition;
-        transform.localPosition += new Vector3(0, bodyHeight/2f + legHeight, 0);
-
-        //Set the current leg length value 
-        currentLegLength = legHeight;
+        /* Adjust the player's height */
+        GetComponent<CapsuleCollider>().height = playerBodyLength;
+        
+        /* Adjust the player model's position to reflect the player's leg length */
+        transform.position = currentFootPosition;
+        transform.localPosition += new Vector3(0, playerBodyLength/2f + playerLegLength, 0);
     }
 
     void Update() {
@@ -110,65 +115,101 @@ public class CustomPlayerController : MonoBehaviour {
         RaycastHit hitInfo = new RaycastHit();
         Vector3 gravityVector = Vector3.zero;
         Vector3 stepVector = Vector3.zero;
+        Vector3 stepDifference = Vector3.zero;
+        previousFootPosition = currentFootPosition;
+        //How wide the player body is
+        float bodyWidth = 0.3f;
 
-        /* Update the legLength values for this frame */
-        previousLegLength = currentLegLength;
-        hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
-        currentLegLength = hitInfo.distance;
+
+        //Get a vector that points forward from the player
+        Transform cameraYAngle = restingCameraTransform.transform;
+        cameraYAngle.localEulerAngles = new Vector3(0, cameraYAngle.localEulerAngles.y, 0);
+        Vector3 forwardVector = cameraYAngle.rotation*Vector3.forward;
+        Vector3 tempForwardVector;
+
+        /* Update the currentlegLength values for the legs that form a circle around the player */
+        int standingLegCount = 0;
+        for(int i = 0; i < currentLegLength.Length-1; i++) {
+
+            /* Get the new temp forward vector  */
+            tempForwardVector = Quaternion.AngleAxis(i*(360/(currentLegLength.Length-1)), upDirection)*forwardVector;
+
+            /* Draw the point for reference */
+            Debug.DrawLine(
+                transform.position + tempForwardVector*bodyWidth - upDirection*playerBodyLength/2f,
+                transform.position + tempForwardVector*bodyWidth - upDirection*playerBodyLength*2,
+                Color.red);
+
+            /* Update the legLength value for this leg */
+            hitInfo = RayTrace(transform.position + tempForwardVector*bodyWidth - upDirection*playerBodyLength/2f, -upDirection, playerLegLength+maxStepHeight);
+            if(hitInfo.collider != null) {
+                standingLegCount++;
+                currentLegLength[i] = hitInfo.distance;
+            }
+            /////NOTE: IF A LEG DOES NOT TOUCH ANYTHING, MAYBE IT SHOULD NOT BE COUNTED
+            else {
+                currentLegLength[i] = playerLegLength+maxStepHeight;
+            }
+        }
+        /* The final legLength value will be directly in the center of the player */
+        hitInfo = RayTrace(transform.position - upDirection*playerBodyLength/2f, -upDirection, playerLegLength+maxStepHeight);
+        if(hitInfo.collider != null) {
+            standingLegCount++;
+        }
+        /////NOTE: IF A LEG DOES NOT TOUCH ANYTHING, MAYBE IT SHOULD NOT BE COUNTED
+        else {
+            currentLegLength[currentLegLength.Length-1] = playerLegLength+maxStepHeight;
+        }
+        currentLegLength[currentLegLength.Length-1] = hitInfo.distance;
 
 
-        /* Check if the player is falling/feet do not touch an object */
-        if(hitInfo.collider == null) { falling = true; }
-        
-
-        /* If the player was falling but now have their feet on the ground, put them into the proper standing position */
-        if(hitInfo.collider != null && falling == true) {
+        /* If less than 3 legs hit an object, the player is falling */
+        if(standingLegCount < 3) {
+            falling = true;
+        }else {
             falling = false;
-
-            /* Put the player's body a legHeight amount above the place where they landed */
-            stepVector = transform.position - (hitInfo.point + upDirection*(bodyHeight/2f + legHeight));
-            transform.position -= stepVector;
-
-            currentLegLength = legHeight;
         }
 
+
         /* If the player is falling, apply a gravity vector */
-        else if(falling == true) {
+        if(falling == true) {
             gravityVector = -0.1f*upDirection;
         }
 
-        /* If the player is on their feet, check if they have taken a step */
+        /* If the player is standing, check if they have taken a step */
         else if(falling == false) {
 
-            /* If a step will be taken, re-calculate the currentLegLength of the new position */
-            stepVector = upDirection*(previousLegLength - currentLegLength);
-            if(stepVector.magnitude != 0) {
-                transform.position += stepVector;
-                hitInfo = RayTrace(transform.position - upDirection*bodyHeight/2f, -upDirection, legHeight+maxStepHeight);
-                currentLegLength = hitInfo.distance;
+            /* Calculate the current foot position of the player by finding the expectedLegLength */
+            float expectedLegLength = 0;
+            for(int i = 0; i < currentLegLength.Length; i++) {
+                expectedLegLength += currentLegLength[i];
             }
+            expectedLegLength /= currentLegLength.Length;
+            currentFootPosition = transform.position - upDirection*(playerBodyLength/2f + expectedLegLength);
+            
+            /* Update the player to the new position */
+            transform.position = currentFootPosition + upDirection*(playerBodyLength/2f + playerLegLength);
+
+
+            /* Calculate the difference in leg length/camera movement in the y axis */
+            //Debug.Log(playerLegLength - expectedLegLength);
+            /* Move the player camera by however much the step was */
+            currentCameraTransform.transform.position -= upDirection*(playerLegLength - expectedLegLength);
         }
+
+
 
 
         /* Apply the movement of the players input */
         GetComponent<Rigidbody>().velocity = Vector3.zero;
         GetComponent<Rigidbody>().MovePosition(transform.position + (gravityVector + inputVector)*Time.deltaTime*60);
-
-        /* Move the player camera if a step was taken */
-        currentCameraTransform.transform.position -= stepVector;
         
-
         //The player camera must always be where the currentCameraTransform is
         playerCamera.transform.position = currentCameraTransform.position;
         playerCamera.transform.rotation = currentCameraTransform.rotation;
-
         
         /* Adjust the camera's position now that the player has moved */
         AdjustCamera();
-        
-        //WHAT NEEDS TO HAPPEN NEXDT:
-        //A FUNCTION THAT SLIDES THE CURRENTCAMTRANS TOWARDS THE RESTYINGCAMTRANS.
-        //THIS FUNCTION ALSO NEEDS TO MAKE SURE THE CURRENTCAMTRANS DOES NOT GO TOO FAR PAST RESTCAMTRANS
     }
 
     void AdjustCamera() {
@@ -177,7 +218,7 @@ public class CustomPlayerController : MonoBehaviour {
          */
         Vector3 positionDifference;
         float minimumPositionDifference = 0.01f;
-        float maximumPositionDifference = bodyHeight/3f;
+        float maximumPositionDifference = playerBodyLength/3f;
         float recoveryPercentage = 0.15f;
 
         /* Get the difference in positions of the cameraTransforms */
