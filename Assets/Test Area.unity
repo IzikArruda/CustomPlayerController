@@ -908,8 +908,8 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 735856495}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.982, y: 0.959, z: 0}
-  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
+  m_LocalPosition: {x: 4.65, y: 0.959, z: 0}
+  m_LocalScale: {x: 2, y: 0.5, z: 2}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_Children: []
   m_Father: {fileID: 0}
@@ -1430,17 +1430,18 @@ MonoBehaviour:
   restingCameraTransform: {fileID: 968198810}
   currentCameraTransform: {fileID: 897956647}
   playerCamera: {fileID: 791350696}
+  morphPercentage: 0.15
   sliding: 0
   movementSpeed: 0.03
   runSpeedMultiplier: 1.5
   gravity: 1
   playerBodyLength: 1.5
+  playerBodyRadius: 0.5
+  legGap: 0.3
   playerLegLength: 0.5
   maxStepHeight: 0.5
-  extraFeet: 7
+  extraFeet: 8
   currentFootPosition: {x: 0, y: 0, z: 0}
-  previousFootPosition: {x: 0, y: 0, z: 0}
-  currentLegLength: []
   falling: 0
 --- !u!23 &1438194342
 MeshRenderer:
