@@ -158,13 +158,14 @@ public class CustomPlayerController : MonoBehaviour {
         yRotation += inputs.mouseY;
         yRotation = Mathf.Clamp(yRotation, -75, 75);
 
-        /* Apply the rotation to the camera's currentCameraTransform*/
+        /* Apply the rotation to the camera's currentCameraTransform */
         currentCameraTransform.transform.localEulerAngles = new Vector3(-yRotation, -xRotation, 0);
+        restingCameraTransform.transform.localEulerAngles = new Vector3(0, -xRotation, 0);
 
         /* Update the camera's position with the new currentCameraTransform */
         playerCamera.transform.rotation = currentCameraTransform.transform.rotation;
     }
-    
+
     void JumpingCondition() {
         /*
     	 * Check if the player has pressed the jump key. To be able to jump, the player must not be falling.
@@ -183,7 +184,7 @@ public class CustomPlayerController : MonoBehaviour {
             JumpAttempt();
         }
     }
-    
+
     void UpdateLegLengths() {
         /*
          * Change the player's leg lengths depending on the state they are in.
@@ -205,13 +206,9 @@ public class CustomPlayerController : MonoBehaviour {
             currentStepHeight = maxStepHeight*0.1f;
         }
     }
-    
+
     public void UpdateInputVector() {
-        
-        /* Get the player's horizontal viewing angle to get vectors relative to the player's view */
-        Quaternion cameraYRotation = currentCameraTransform.transform.rotation;
-        cameraYRotation.eulerAngles.Set(0, cameraYRotation.y, 0);
-        
+
         /* Use two input types for each axis to allow more control on player movement */
         inputVector = new Vector3((1-sliding)*inputs.playerMovementXRaw + sliding*inputs.playerMovementX,
                 0, (1-sliding)*inputs.playerMovementYRaw + sliding*inputs.playerMovementY);
@@ -229,11 +226,10 @@ public class CustomPlayerController : MonoBehaviour {
             inputVector *= movementSpeed;
         }
 
-        /* Rotate the input direction to match the player's view */
-        inputVector = cameraYRotation*inputVector;
-
+        /* Rotate the input direction to match the player's view. Only use the view's rotation along the Y axis */
+        inputVector = restingCameraTransform.rotation*inputVector;
     }
-    
+
     public void StepPlayer() {
         /*
          * Use the given inputVector to move the player in the proper direction and use the given
@@ -248,7 +244,7 @@ public class CustomPlayerController : MonoBehaviour {
         Vector3 gravityVector = Vector3.zero;
         Vector3 upDirection = transform.rotation*Vector3.up;
         Vector3 forwardVector = transform.rotation*Vector3.forward;
-        Vector3 tempForwardVector;
+        Vector3 tempForwardVector = Vector3.zero; ;
 
         /* Update the currentlegLength values for the legs that form a circle around the player */
         LegCollisionTest(transform.position - upDirection*playerBodyLength/2.5f, -upDirection, currentLegLength+currentStepHeight, 0);
@@ -291,7 +287,7 @@ public class CustomPlayerController : MonoBehaviour {
             currentFootPosition = transform.position - upDirection*(playerBodyLength/2f + expectedLegLength);
         }
     }
-    
+
     public void MovePlayer() {
         /*
          * Move the player relative to what has occured this frame so far, such as any steps taken
