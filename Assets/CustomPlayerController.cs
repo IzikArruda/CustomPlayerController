@@ -158,11 +158,11 @@ public class CustomPlayerController : MonoBehaviour {
         yRotation += inputs.mouseY;
         yRotation = Mathf.Clamp(yRotation, -75, 75);
 
-        /* Apply the rotation to the camera's resting position */
-        restingCameraTransform.transform.localEulerAngles = new Vector3(-yRotation, -xRotation, 0);
+        /* Apply the rotation to the camera's currentCameraTransform*/
+        currentCameraTransform.transform.localEulerAngles = new Vector3(-yRotation, -xRotation, 0);
 
-        /* Update the camera's position with the new restingCamera transform */
-        playerCamera.transform.rotation = restingCameraTransform.transform.rotation;
+        /* Update the camera's position with the new currentCameraTransform */
+        playerCamera.transform.rotation = currentCameraTransform.transform.rotation;
     }
     
     void JumpingCondition() {
@@ -375,11 +375,11 @@ public class CustomPlayerController : MonoBehaviour {
 
         if(Physics.Raycast(bodyToFeet, out hitInfo, length)){
             extraLegLenths[index] = hitInfo.distance;
-            /* Draw the point for reference */
-            Debug.DrawLine(
-                position,
-                position + direction*(currentLegLength+currentStepHeight),
-                Color.red);
+            ///* Draw the point for reference */
+            //Debug.DrawLine(
+            //    position,
+            //    position + direction*(currentLegLength+currentStepHeight),
+            //    Color.red);
         }
         else {
             extraLegLenths[index] = -1;
@@ -394,9 +394,7 @@ public class CustomPlayerController : MonoBehaviour {
     	if(jumpPrimed == true && falling == false){
     		jumpPrimed = false;
             falling = true;
-            Debug.Log("jump");
             currentYVelocity = jumpSpeed;
-        }else {
         }
     }
 }
