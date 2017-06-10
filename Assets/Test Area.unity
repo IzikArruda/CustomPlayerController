@@ -1351,7 +1351,7 @@ MonoBehaviour:
   gravity: 0.005
   jumpSpeed: 0.1
   currentYVelocity: 0
-  maxYVelocity: 0
+  maxYVelocity: 0.2
   playerBodyLength: 1.5
   playerBodyRadius: 0.5
   legGap: 0.3

@@ -44,7 +44,7 @@ public class CustomPlayerController : MonoBehaviour {
     /* How fast a player travels upward when they jump */
     public float jumpSpeed;
     
-    /* The Y velocity of the player along with its max */
+    /* The Y velocity of the player along with its max(positive) */
     public float currentYVelocity;
     public float maxYVelocity;
 
@@ -83,7 +83,7 @@ public class CustomPlayerController : MonoBehaviour {
     private float[] extraLegLenths;
 
     /* If the player is falling with gravity or standing with their legs */
-    private bool falling = true;
+    private bool falling = false;
 
 
     /* -------------- Built-in Unity Functions ---------------------------------------------------------- */
@@ -108,7 +108,7 @@ public class CustomPlayerController : MonoBehaviour {
 
         /* Adjust the player model's position to reflect the player's leg length */
         transform.position = currentFootPosition;
-        transform.localPosition += new Vector3(0, playerBodyLength/2f + currentLegLength, 0);
+        transform.localPosition += new Vector3(0, playerBodyLength/2f + playerLegLength, 0);
     }
     
     void Update() {
@@ -319,6 +319,10 @@ public class CustomPlayerController : MonoBehaviour {
         /* If the player is falling, apply gravity to their yVelocity. Reset yVelocity if they are standing. */
         if(falling == true) {
             currentYVelocity -= gravity*Time.deltaTime*60;
+            /* Prevent the player from falling faster than terminal velocity */
+            if(currentYVelocity < -maxYVelocity) {
+                currentYVelocity = -maxYVelocity;
+            }
             gravityVector = currentYVelocity*upDirection;
         }
         else {
