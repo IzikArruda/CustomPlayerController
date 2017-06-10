@@ -1,8 +1,15 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+/*
+ * A custom character controller that uses UserInputs to handle movement. It uses "legs" to keep
+ * it's "body" above the floor, letting the player walk up and down stairs or slopes smoothly. 
+ */
 public class CustomPlayerController : MonoBehaviour {
-    
+
+    /* The UserInputs object linked to this player */
+    private UserInputs inputs;
+
     /* The expected position of the camera */
     public Transform restingCameraTransform;
 
@@ -12,11 +19,15 @@ public class CustomPlayerController : MonoBehaviour {
     /* The camera used for the player's view */
     public Camera playerCamera;
 
+    /* The viewing angle of the player's camera */
+    private float xRotation;
+    private float yRotation;
+    
     /* How fast currentCameraTransform morphs to restingCameraTransform each frame, in percentage. */
     [Range(1, 0)]
     public float morphPercentage;
 
-    /* The direction of player input */
+    /* The direction and magnitude of player input */
     private Vector3 inputVector = Vector3.zero;
     
     /* Sliding determines how much of getAxis should be used over getAxisRaw. */
@@ -30,6 +41,19 @@ public class CustomPlayerController : MonoBehaviour {
     /* How fast a player accelerates towards their feet when falling. */
     public float gravity;
 
+    /* How fast a player travels upward when they jump */
+    public float jumpSpeed;
+    
+    /* The Y velocity of the player along with its max */
+    public float currentYVelocity;
+    public float maxYVelocity;
+
+    /* Used to determine the state of the jump. If true, the next jump opportunity will cause the player to jump. */
+    private bool jumpPrimed;
+    /* The state of the jump key on the current and previous frame. true = pressed */
+    private bool jumpKeyPrevious = false;
+    private bool jumpKeyCurrent = false;
+
     /* The sizes of the player's capsule collider */
     public float playerBodyLength;
     public float playerBodyRadius;
@@ -40,31 +64,40 @@ public class CustomPlayerController : MonoBehaviour {
 
     /* How much distance will be between the player's collider and the floor */
     public float playerLegLength;
+    public float currentLegLength;
+    
+    /* The length of the player's leg at this frame */
+    private float expectedLegLength;
 
-    /* How low a player can step down for them to snap to the ground.
-     * Note that they can only step up a maximum of playerLegLength. */
+    /* How low a player can step down for them to snap to the ground */
     public float maxStepHeight;
+    public float currentStepHeight;
 
     /* How many extra feet are used when handling ground checks */
     public int extraFeet;
 
     /* The position of the player's foot. The player body will always try to be playerLegLength above this point. */
-    [HideInInspector]
-    public Vector3 currentFootPosition;
+    private Vector3 currentFootPosition;
 
     /* The length of each leg of the player */
-    private float[] currentLegLength;
-    
-    /* If the player is falling with gravity or standing with their legs */
-    public bool falling = true;
+    private float[] extraLegLenths;
 
+    /* If the player is falling with gravity or standing with their legs */
+    private bool falling = true;
+
+
+    /* -------------- Built-in Unity Functions ---------------------------------------------------------- */
+    
     void Start() {
         /*
          * Set the values of the player model to be equal to the values set in the script
          */
 
+        /* Create the UserInputs object linked to this player */
+        inputs = new UserInputs();
+
         /* Initilize the leg lengths */
-        currentLegLength = new float[extraFeet + 1];
+        extraLegLenths = new float[extraFeet + 1];
         
         /* Put the starting foot position at the base of the player model */
         currentFootPosition = transform.TransformPoint(new Vector3(0, -GetComponent<CapsuleCollider>().height/2, 0));
@@ -75,21 +108,113 @@ public class CustomPlayerController : MonoBehaviour {
 
         /* Adjust the player model's position to reflect the player's leg length */
         transform.position = currentFootPosition;
-        transform.localPosition += new Vector3(0, playerBodyLength/2f + playerLegLength, 0);
+        transform.localPosition += new Vector3(0, playerBodyLength/2f + currentLegLength, 0);
     }
-
+    
     void Update() {
-        newPlayerMovement();
-    }
-
-    void newPlayerMovement() {
         /*
-         * A new playerMovement function.
+         * Handle the inputs of the user and the movement of the player on this frame.
          */
 
-        /* Get the player's horizontal viewing angle to properly rotate the input vector */
+        /* Update the inputs of the player */
+        inputs.UpdateInputs();
+
+        /* Use mouse input values to rotate the camera */
+        RotateCamera();
+
+        /* Update the player's jumping conditions */
+        JumpingCondition();
+        
+        /* Change the player's leg lengths depending on their state */
+        UpdateLegLengths();
+        
+        /* Get an input vector that is relative to the player's rotation and takes into account the player's speed */
+        UpdateInputVector();
+        
+        /* Find the footPosition of the player and check if they are falling or standing */
+        StepPlayer();
+        
+        /* Apply the movement to the player from taking steps, inputting directions and falling from gravity. */
+        MovePlayer();
+
+        /* Adjust the camera's position now that the player has moved */
+        AdjustCameraPosition();
+    }
+
+
+    /* ----------------- Update Functions ------------------------------------------------------------- */
+
+    void RotateCamera() {
+        /*
+         * Use the user's mouse movement to rotate the player's camera
+         */
+
+        /* Ensure the X rotation does not overflow */
+        xRotation -= inputs.mouseX;
+        if(xRotation < 0) { xRotation += 360; }
+        else if(xRotation > 360) { xRotation -= 360; }
+
+        /* Prevent the Y rotation from rotating too high or low */
+        yRotation += inputs.mouseY;
+        yRotation = Mathf.Clamp(yRotation, -75, 75);
+
+        /* Apply the rotation to the camera's resting position */
+        restingCameraTransform.transform.localEulerAngles = new Vector3(-yRotation, -xRotation, 0);
+
+        /* Update the camera's position with the new restingCamera transform */
+        playerCamera.transform.rotation = restingCameraTransform.transform.rotation;
+    }
+    
+    void JumpingCondition() {
+        /*
+    	 * Check if the player has pressed the jump key. To be able to jump, the player must not be falling.
+    	 * 
+    	 * When the player jumps, their Y velocity will become positive.
+    	 */
+        jumpKeyPrevious = jumpKeyCurrent;
+        jumpKeyCurrent = inputs.spaceBar;
+
+        /* Pressing the jump key will prime the jump */
+        if(jumpKeyCurrent == true && jumpKeyPrevious == false) {
+            jumpPrimed = true;
+        }
+        /* Releasing the jump key will attempt to make the player jump */
+        else if(jumpKeyCurrent == false && jumpKeyPrevious == true) {
+            JumpAttempt();
+        }
+    }
+    
+    void UpdateLegLengths() {
+        /*
+         * Change the player's leg lengths depending on the state they are in.
+         * If the player is standing, keep their leg length to it's expected amount.
+         * If the player is falling, give them short legs.
+         * If the player is falling, but is travelling against gravity, given them very short leg lengths.
+         */
+
+        if(falling == false) {
+            currentLegLength = playerLegLength;
+            currentStepHeight = maxStepHeight;
+        }
+        else if(currentYVelocity < 0) {
+            currentLegLength = playerLegLength*0.5f;
+            currentStepHeight = maxStepHeight*0.5f;
+        }
+        else {
+            currentLegLength = playerLegLength*0.1f;
+            currentStepHeight = maxStepHeight*0.1f;
+        }
+    }
+    
+    public void UpdateInputVector() {
+
+        /* Get the player's horizontal viewing angle to get vectors relative to the player's view */
         Transform cameraYAngle = restingCameraTransform.transform;
         cameraYAngle.localEulerAngles = new Vector3(0, cameraYAngle.localEulerAngles.y, 0);
+        /* Get the player model's rotation to be able to get directional vectors relative to the model */
+        Quaternion cameraOlnyYRotation = cameraYAngle.rotation;
+
+        //////////$PLAYER INPUT DIRECTION AND RUN
 
         /* Use two input types for each axis to allow more control on player movement */
         inputVector = new Vector3((1-sliding)*Input.GetAxisRaw("Horizontal") + sliding*Input.GetAxis("Horizontal"),
@@ -109,16 +234,14 @@ public class CustomPlayerController : MonoBehaviour {
         }
 
         /* Rotate the input direction to match the player's view */
-        inputVector = cameraYAngle.rotation*inputVector;
+        inputVector = cameraOlnyYRotation*inputVector;
 
-        /* Apply the movement to the player */
-        MovePlayer(inputVector, cameraYAngle.rotation);
     }
-
-    public void MovePlayer(Vector3 inputVector, Quaternion fixedPlayerView) {
+    
+    public void StepPlayer() {
         /*
          * Use the given inputVector to move the player in the proper direction and use the given
-         * fixedPlayerViewingVector to find their forward and up vectors. 
+         * fixedPlayerView as the player's rotation to keep Vector.Up/Foward relative to the player.
          * 
          * To determine if the player has taken a step down or up, compare a rayTrace taken before this frame and 
          * a rayTrace taken at this frame. If their legLenths are different, then a step will be taken.
@@ -127,21 +250,21 @@ public class CustomPlayerController : MonoBehaviour {
          * of gravity instead of taking a step. When under the effects of graivty, the previous step is ignored.
          */
         Vector3 gravityVector = Vector3.zero;
-        Vector3 upDirection = fixedPlayerView*Vector3.up;
-        Vector3 forwardVector = fixedPlayerView*Vector3.forward;
+        Vector3 upDirection = transform.rotation*Vector3.up;
+        Vector3 forwardVector = transform.rotation*Vector3.forward;
         Vector3 tempForwardVector;
 
         /* Update the currentlegLength values for the legs that form a circle around the player */
-        LegCollisionTest(transform.position - upDirection*playerBodyLength/2f, -upDirection, playerLegLength+maxStepHeight, 0);
-        for(int i = 1; i < currentLegLength.Length; i++) {
-            tempForwardVector = Quaternion.AngleAxis(i*(360/(currentLegLength.Length-1)), upDirection)*forwardVector;
-            LegCollisionTest(transform.position + tempForwardVector*legGap*playerBodyRadius - upDirection*playerBodyLength/2f, -upDirection, playerLegLength+maxStepHeight, i);
+        LegCollisionTest(transform.position - upDirection*playerBodyLength/2.5f, -upDirection, currentLegLength+currentStepHeight, 0);
+        for(int i = 1; i < extraLegLenths.Length; i++) {
+            tempForwardVector = Quaternion.AngleAxis(i*(360/(extraLegLenths.Length-1)), upDirection)*forwardVector;
+            LegCollisionTest(transform.position + tempForwardVector*legGap*playerBodyRadius - upDirection*playerBodyLength/2.5f, -upDirection, currentLegLength+currentStepHeight, i);
         }
-        
+
         /* Get how many legs are touching an object */
         int standingCount = 0;
-        for(int i = 0; i < currentLegLength.Length; i++) {
-            if(currentLegLength[i] >= 0) {
+        for(int i = 0; i < extraLegLenths.Length; i++) {
+            if(extraLegLenths[i] >= 0) {
                 standingCount++;
             }
         }
@@ -150,70 +273,64 @@ public class CustomPlayerController : MonoBehaviour {
         int requiredCount = 1;
         if(standingCount >= requiredCount) {
             falling = false;
+            currentYVelocity = 0;
         }
         else {
+            /* Attempt to consume a jump if the player was standing but will now start falling */
+            JumpAttempt();
             falling = true;
         }
-        
+
         /* If the player is standing, check if they have taken a step */
         if(falling == false) {
 
             /* Calculate the current foot position of the player by finding the expectedLegLength */
-            float expectedLegLength = 0;
-            Debug.Log("---");
-            for(int i = 0; i < currentLegLength.Length; i++) {
-                if(currentLegLength[i] >= 0) {
-                    expectedLegLength += currentLegLength[i];
-                    Debug.Log(currentLegLength[i]);
+            expectedLegLength = 0;
+            for(int i = 0; i < extraLegLenths.Length; i++) {
+                if(extraLegLenths[i] >= 0) {
+                    expectedLegLength += extraLegLenths[i];
                 }
             }
             expectedLegLength /= standingCount;
-            Debug.Log(expectedLegLength);
             currentFootPosition = transform.position - upDirection*(playerBodyLength/2f + expectedLegLength);
-            
-            /* Get how much distance was travelled from the step and apply it to the player and their camera */
-            transform.position = currentFootPosition + upDirection*(playerBodyLength/2f + playerLegLength);
-            currentCameraTransform.transform.position -= upDirection*(playerLegLength - expectedLegLength);
         }
-        /* If the player is falling, apply a gravity vector */
-        else if(falling == true) {
-            gravityVector = -0.1f*upDirection;
-        }
-        
-        /* Apply the movement of the players input */
-        GetComponent<Rigidbody>().velocity = Vector3.zero;
-        GetComponent<Rigidbody>().MovePosition(transform.position + (gravityVector + inputVector)*Time.deltaTime*60);
-        
-        //The player camera must always be where the currentCameraTransform is
-        playerCamera.transform.position = currentCameraTransform.position;
-        playerCamera.transform.rotation = currentCameraTransform.rotation;
-        
-        /* Adjust the camera's position now that the player has moved */
-        AdjustCamera();
     }
     
-    void LegCollisionTest(Vector3 position, Vector3 direction, float length, int index) {
+    public void MovePlayer() {
         /*
-         * Use the given values to send a ray trace of the player's leg and return the distance of the ray.
-         * Update the arrays that track the status of the leg with the given index.
+         * Move the player relative to what has occured this frame so far, such as any steps taken
+         * or if the player should be falling. 
+         * 
+         * Step movements are done by setting the  player's position 
+         * relative to their foot position and saved legLength for this frame.
+         * 
+         * Gravity is determined by tracking the upward/downward velocity of the player and whether they are falling.
          */
-        RaycastHit hitInfo = new RaycastHit();
-        Ray bodyToFeet = new Ray(position, direction);
+        Vector3 upDirection = transform.rotation*Vector3.up;
+        Vector3 gravityVector = Vector3.zero;
 
-        if(Physics.Raycast(bodyToFeet, out hitInfo, length)){
-            currentLegLength[index] = hitInfo.distance;
-            /* Draw the point for reference */
-            Debug.DrawLine(
-                position,
-                position + direction*(playerLegLength+maxStepHeight),
-                Color.red);
+        /* If the player is standing, position their body relative to their foot position and the length of their legs.
+         * Any distance travelled up or down from a step will not be applied to the player's camera. */
+        if(falling == false) {
+            transform.position = currentFootPosition + upDirection*(playerBodyLength/2f + currentLegLength);
+            currentCameraTransform.transform.position -= upDirection*(currentLegLength - expectedLegLength);
+        }
+
+        /* If the player is falling, apply gravity to their yVelocity. Reset yVelocity if they are standing. */
+        if(falling == true) {
+            currentYVelocity -= gravity*Time.deltaTime*60;
+            gravityVector = currentYVelocity*upDirection;
         }
         else {
-            currentLegLength[index] = -1;
+            currentYVelocity = 0;
         }
+
+        /* Apply the movement of the players input */
+        GetComponent<Rigidbody>().velocity = Vector3.zero;
+        GetComponent<Rigidbody>().MovePosition(transform.position + gravityVector + (inputVector)*Time.deltaTime*60);
     }
 
-    void AdjustCamera() {
+    void AdjustCameraPosition() {
         /*
          * Move the currentCameraTransform towards restingCameraTransform.
          */
@@ -223,7 +340,7 @@ public class CustomPlayerController : MonoBehaviour {
 
         /* Get the difference in positions of the cameraTransforms */
         positionDifference = restingCameraTransform.position - currentCameraTransform.position;
-        
+
         /* If the difference in their position is small enough, snap the currentTransform to the restingTransform */
         if(positionDifference.magnitude < minimumPositionDifference) {
             currentCameraTransform.position = restingCameraTransform.position;
@@ -232,12 +349,52 @@ public class CustomPlayerController : MonoBehaviour {
         /* If the difference in their position is too large, clamp the currentTransform */
         else if(positionDifference.magnitude > maximumPositionDifference) {
             currentCameraTransform.position = restingCameraTransform.position - positionDifference.normalized*maximumPositionDifference;
-            Debug.Log("THING");
         }
 
         /* Smoothly translate the currentTransform to restingTransform using a "recoveryPercentage" */
         else {
             currentCameraTransform.position += positionDifference*morphPercentage;
+        }
+
+        /* Place the player camera using currentCameraTransform */
+        playerCamera.transform.position = currentCameraTransform.position;
+    }
+
+
+    /* ----------- Event Functions ------------------------------------------------------------- */
+
+    void LegCollisionTest(Vector3 position, Vector3 direction, float length, int index) {
+        /*
+         * Use the given values to send a ray trace of the player's leg and return the distance of the ray.
+         * Update the arrays that track the status of the leg with the given index.
+         */
+        RaycastHit hitInfo = new RaycastHit();
+        Ray bodyToFeet = new Ray(position, direction);
+
+        if(Physics.Raycast(bodyToFeet, out hitInfo, length)){
+            extraLegLenths[index] = hitInfo.distance;
+            /* Draw the point for reference */
+            Debug.DrawLine(
+                position,
+                position + direction*(currentLegLength+currentStepHeight),
+                Color.red);
+        }
+        else {
+            extraLegLenths[index] = -1;
+        }
+    }
+    
+    void JumpAttempt(){
+    	/*
+    	 * Try to make the player jump. A jump must be primed (jumpPrimed == true) for the player to jump.
+    	 */
+    	
+    	if(jumpPrimed == true && falling == false){
+    		jumpPrimed = false;
+            falling = true;
+            Debug.Log("jump");
+            currentYVelocity = jumpSpeed;
+        }else {
         }
     }
 }

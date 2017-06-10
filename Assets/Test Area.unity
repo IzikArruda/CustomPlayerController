@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44692492, g: 0.4967869, b: 0.57508546, a: 1}
+  m_IndirectSpecularColor: {r: 0.44692504, g: 0.49678695, b: 0.5750854, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -1010,8 +1010,6 @@ GameObject:
   m_Component:
   - 4: {fileID: 897956647}
   - 33: {fileID: 897956650}
-  - 135: {fileID: 897956649}
-  - 23: {fileID: 897956648}
   m_Layer: 0
   m_Name: Current Camera Transform
   m_TagString: Untagged
@@ -1032,47 +1030,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1438194345}
   m_RootOrder: 1
---- !u!23 &897956648
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 897956646}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
-  m_SubsetIndices: 
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_PreserveUVs: 1
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_SelectedWireframeHidden: 0
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingOrder: 0
---- !u!135 &897956649
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 897956646}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &897956650
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -1089,8 +1046,6 @@ GameObject:
   m_Component:
   - 4: {fileID: 968198810}
   - 33: {fileID: 968198813}
-  - 135: {fileID: 968198812}
-  - 23: {fileID: 968198811}
   m_Layer: 0
   m_Name: Camera Resting Transform
   m_TagString: Untagged
@@ -1111,47 +1066,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1438194345}
   m_RootOrder: 0
---- !u!23 &968198811
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 968198809}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
-  m_SubsetIndices: 
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_PreserveUVs: 1
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_SelectedWireframeHidden: 0
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingOrder: 0
---- !u!135 &968198812
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 968198809}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &968198813
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -1432,17 +1346,20 @@ MonoBehaviour:
   playerCamera: {fileID: 791350696}
   morphPercentage: 0.15
   sliding: 0
-  movementSpeed: 0.03
+  movementSpeed: 0.05
   runSpeedMultiplier: 1.5
-  gravity: 1
+  gravity: 0.005
+  jumpSpeed: 0.1
+  currentYVelocity: 0
+  maxYVelocity: 0
   playerBodyLength: 1.5
   playerBodyRadius: 0.5
   legGap: 0.3
   playerLegLength: 0.5
+  currentLegLength: 0
   maxStepHeight: 0.5
+  currentStepHeight: 0
   extraFeet: 8
-  currentFootPosition: {x: 0, y: 0, z: 0}
-  falling: 0
 --- !u!23 &1438194342
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1579,10 +1496,10 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1756128392}
-  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalRotation: {x: 0.21003023, y: 0.7864627, z: -0.36673352, w: 0.45041135}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
-  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+  m_LocalEulerAnglesHint: {x: 50, y: 120.4, z: 0}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
