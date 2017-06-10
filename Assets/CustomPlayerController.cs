@@ -209,7 +209,7 @@ public class CustomPlayerController : MonoBehaviour {
     public void UpdateInputVector() {
 
         /* Get the player's horizontal viewing angle to get vectors relative to the player's view */
-        Transform cameraYAngle = restingCameraTransform.transform;
+        Transform cameraYAngle = currentCameraTransform.transform;
         cameraYAngle.localEulerAngles = new Vector3(0, cameraYAngle.localEulerAngles.y, 0);
         /* Get the player model's rotation to be able to get directional vectors relative to the model */
         Quaternion cameraOlnyYRotation = cameraYAngle.rotation;
