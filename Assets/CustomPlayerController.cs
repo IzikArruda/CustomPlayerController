@@ -64,14 +64,14 @@ public class CustomPlayerController : MonoBehaviour {
 
     /* How much distance will be between the player's collider and the floor */
     public float playerLegLength;
-    public float currentLegLength;
+    private float currentLegLength;
     
     /* The length of the player's leg at this frame */
     private float expectedLegLength;
 
     /* How low a player can step down for them to snap to the ground */
     public float maxStepHeight;
-    public float currentStepHeight;
+    private float currentStepHeight;
 
     /* How many extra feet are used when handling ground checks */
     public int extraFeet;
@@ -213,12 +213,10 @@ public class CustomPlayerController : MonoBehaviour {
         cameraYAngle.localEulerAngles = new Vector3(0, cameraYAngle.localEulerAngles.y, 0);
         /* Get the player model's rotation to be able to get directional vectors relative to the model */
         Quaternion cameraOlnyYRotation = cameraYAngle.rotation;
-
-        //////////$PLAYER INPUT DIRECTION AND RUN
-
+        
         /* Use two input types for each axis to allow more control on player movement */
-        inputVector = new Vector3((1-sliding)*Input.GetAxisRaw("Horizontal") + sliding*Input.GetAxis("Horizontal"),
-                0, (1-sliding)*Input.GetAxisRaw("Vertical") + sliding*Input.GetAxis("Vertical"));
+        inputVector = new Vector3((1-sliding)*inputs.playerMovementXRaw + sliding*inputs.playerMovementX,
+                0, (1-sliding)*inputs.playerMovementYRaw + sliding*inputs.playerMovementY);
 
         /* Keep the movement's maginitude from going above 1 */
         if(inputVector.magnitude > 1) {
